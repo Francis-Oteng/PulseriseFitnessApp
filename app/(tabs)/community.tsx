@@ -207,17 +207,17 @@ export default function CommunityScreen() {
 
         {activeTab === 'leaderboard' && (
           <View style={styles.leaderboardContainer}>
-            {[
-              { rank: 1, name: 'Alex M.', points: 2840, avatar: '🥇' },
-              { rank: 2, name: 'Sophie L.', points: 2650, avatar: '🥈' },
-              { rank: 3, name: 'Carlos R.', points: 2490, avatar: '🥉' },
+            {([
+              { rank: 1, name: 'Alex M.', points: 2840, avatar: '🥇', isUser: false },
+              { rank: 2, name: 'Sophie L.', points: 2650, avatar: '🥈', isUser: false },
+              { rank: 3, name: 'Carlos R.', points: 2490, avatar: '🥉', isUser: false },
               { rank: 4, name: user?.displayName?.split(' ')[0] ?? 'You', points: 1820, avatar: '👤', isUser: true },
-              { rank: 5, name: 'Nina K.', points: 1740, avatar: '👩' },
-            ].map((entry) => (
-              <View key={entry.rank} style={[styles.leaderRow, (entry as any).isUser && styles.leaderRowUser]}>
+              { rank: 5, name: 'Nina K.', points: 1740, avatar: '👩', isUser: false },
+            ] as Array<{ rank: number; name: string; points: number; avatar: string; isUser: boolean }>).map((entry) => (
+              <View key={entry.rank} style={[styles.leaderRow, entry.isUser && styles.leaderRowUser]}>
                 <Text style={styles.leaderRank}>#{entry.rank}</Text>
                 <Text style={styles.leaderAvatar}>{entry.avatar}</Text>
-                <Text style={[styles.leaderName, (entry as any).isUser && styles.leaderNameUser]}>
+                <Text style={[styles.leaderName, entry.isUser && styles.leaderNameUser]}>
                   {entry.name}
                 </Text>
                 <Text style={styles.leaderPoints}>{entry.points.toLocaleString()} pts</Text>

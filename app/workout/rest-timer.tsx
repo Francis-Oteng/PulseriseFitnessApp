@@ -77,7 +77,7 @@ export default function RestTimerScreen() {
 
         <Text style={styles.tip}>
           {timerDone
-            ? 'Great! You\'re ready for the next set 💪'
+            ? `Great! You're ready for the next set 💪`
             : 'Use this time to hydrate and prepare for your next set.'}
         </Text>
 

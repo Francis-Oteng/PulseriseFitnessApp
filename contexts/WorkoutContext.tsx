@@ -84,7 +84,8 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     timerRef.current = setInterval(() => {
       setRestTimeRemaining((prev) => {
         if (prev <= 1) {
-          clearInterval(timerRef.current!);
+          const timer = timerRef.current;
+          if (timer) clearInterval(timer);
           setRestTimerActive(false);
           playBeep();
           return 0;

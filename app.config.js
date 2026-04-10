@@ -65,6 +65,8 @@ export default {
       [
         '@react-native-google-signin/google-signin',
         {
+          // Replace with your REVERSED_CLIENT_ID from GoogleService-Info.plist
+          // See .env.example for instructions on how to obtain this value
           iosUrlScheme: 'com.googleusercontent.apps.YOUR_REVERSED_CLIENT_ID',
         },
       ],
@@ -74,6 +76,8 @@ export default {
     },
     extra: {
       eas: {
+        // Run `eas init` to generate your EAS project ID and update this value
+        // See .env.example for more details
         projectId: 'your-eas-project-id',
       },
       apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.pulserise.app',

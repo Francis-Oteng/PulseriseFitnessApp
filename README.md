@@ -1,50 +1,79 @@
-# Welcome to your Expo app 👋
+# Pulserise Fitness App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A comprehensive React Native fitness application built with Expo, featuring authentication, workout tracking, progress analysis, community features, and more.
 
-## Get started
+## Features
 
-1. Install dependencies
+- **Authentication**: Email/password, Google Sign-In, and offline auth fallback
+- **Onboarding**: Step-by-step setup (parameters → goals → fitness level → training days)
+- **Workout Tracking**: Full workout library with rest timer (audio cues) and progress tracking
+- **Analysis**: Workout history, personal records, and progress charts
+- **Community**: Social feed, fitness challenges, and leaderboard
+- **Profile Management**: Weekly calendar view, stats, and avatar upload
+- **Settings**: Comprehensive preferences including units, notifications, and sound
 
+## Tech Stack
+
+- **Framework**: Expo (React Native) with TypeScript
+- **Navigation**: Expo Router (file-based routing)
+- **Authentication**: Google Sign-In + Email auth + Offline fallback
+- **Storage**: AsyncStorage for local data persistence
+- **Audio**: expo-av for rest timer beeps
+- **Image**: expo-image-picker + Pexels API integration
+- **HTTP**: Axios for API calls
+- **Build**: EAS Build
+
+## Getting Started
+
+1. **Clone and install dependencies:**
    ```bash
    npm install
    ```
 
-2. Start the app
+2. **Configure environment:**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your API keys
+   ```
 
+3. **Start the development server:**
    ```bash
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+## Project Structure
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+```
+app/
+├── (auth)/          # Login and registration screens
+├── (onboarding)/    # 4-step onboarding flow
+├── (tabs)/          # Main tab navigation
+│   ├── workout      # Workout library and today's plan
+│   ├── analysis     # Progress tracking and stats
+│   ├── community    # Social feed and challenges
+│   └── profile      # User profile and calendar
+├── workout/         # Workout detail and rest timer
+└── settings.tsx     # App settings
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+contexts/            # React contexts (Auth, Workout)
+services/            # API, Image, and Offline auth services
+utils/               # Safe number utilities
+assets/              # Images, fonts, and sounds
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Environment Variables
 
-## Learn more
+See `.env.example` for required environment variables:
+- `EXPO_PUBLIC_API_BASE_URL` - Backend API URL
+- `EXPO_PUBLIC_PEXELS_API_KEY` - Pexels API for workout images
+- `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` - Google OAuth client ID
 
-To learn more about developing your project with Expo, look at the following resources:
+## Build
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+# Development build
+eas build --profile development
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+# Production build
+eas build --profile production
+```

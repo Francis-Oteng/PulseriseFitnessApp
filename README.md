@@ -25,40 +25,49 @@ A comprehensive React Native fitness application built with Expo, featuring auth
 
 ## Getting Started
 
-1. **Clone and install dependencies:**
-   ```bash
-   npm install
-   ```
+1. **Install dependencies:**
+    ```bash
+    cd frontend
+    npm install
+    ```
 
 2. **Configure environment:**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your API keys
-   ```
+    ```bash
+    cd frontend
+    cp .env.example .env
+    # Edit .env with your API keys
+    ```
 
 3. **Start the development server:**
-   ```bash
-   npx expo start
-   ```
+    ```bash
+    cd frontend
+    npx expo start
+    ```
 
 ## Project Structure
 
 ```
-app/
-├── (auth)/          # Login and registration screens
-├── (onboarding)/    # 4-step onboarding flow
-├── (tabs)/          # Main tab navigation
-│   ├── workout      # Workout library and today's plan
-│   ├── analysis     # Progress tracking and stats
-│   ├── community    # Social feed and challenges
-│   └── profile      # User profile and calendar
-├── workout/         # Workout detail and rest timer
-└── settings.tsx     # App settings
+frontend/
+├── app/
+│   ├── (auth)/          # Login and registration screens
+│   ├── (onboarding)/    # 4-step onboarding flow
+│   ├── (tabs)/          # Main tab navigation
+│   │   ├── workout      # Workout library and today's plan
+│   │   ├── analysis     # Progress tracking and stats
+│   │   ├── community    # Social feed and challenges
+│   │   └── profile      # User profile and calendar
+│   ├── workout/         # Workout detail and rest timer
+│   └── settings.tsx     # App settings
+├── components/          # Shared UI components
+├── contexts/            # React contexts (Auth, User, Progress, Workout)
+├── data/                # Workout templates and achievements
+├── hooks/               # Custom hooks
+├── services/            # API, image, and workout generation services
+├── utils/               # Utility helpers
+└── assets/              # Images, fonts, and sounds
 
-contexts/            # React contexts (Auth, Workout)
-services/            # API, Image, and Offline auth services
-utils/               # Safe number utilities
-assets/              # Images, fonts, and sounds
+backend/
+└── API_DOC.md           # Spring Boot API reference
 ```
 
 ## Environment Variables
@@ -71,6 +80,8 @@ See `.env.example` for required environment variables:
 ## Build
 
 ```bash
+# From the frontend directory
+cd frontend
 # Development build
 eas build --profile development
 

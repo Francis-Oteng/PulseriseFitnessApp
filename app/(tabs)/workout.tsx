@@ -1,246 +1,158 @@
-import React, { useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  RefreshControl,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
-import { useAuth } from '@/contexts/AuthContext';
-import { useWorkout } from '@/contexts/WorkoutContext';
-import { Colors } from '@/constants/Colors';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import { router } from 'expo-router';
+import { useUser } from '../../src/context/UserContext';
+import { useWorkout } from '../../src/context/WorkoutContext';
+import { useWorkoutGenerator } from '../../src/hooks/useWorkoutGenerator';
+import { formatDurationMinutes } from '../../src/utils/formatters';
 
-const SAMPLE_WORKOUTS = [
-  {
-    id: '1',
-    name: 'Full Body Strength',
-    duration: '45 min',
-    exercises: 8,
-    difficulty: 'Intermediate',
-    category: 'Strength',
-    emoji: '💪',
-  },
-  {
-    id: '2',
-    name: 'HIIT Cardio Blast',
-    duration: '30 min',
-    exercises: 6,
-    difficulty: 'Advanced',
-    category: 'Cardio',
-    emoji: '🔥',
-  },
-  {
-    id: '3',
-    name: 'Core & Flexibility',
-    duration: '25 min',
-    exercises: 10,
-    difficulty: 'Beginner',
-    category: 'Flexibility',
-    emoji: '🧘',
-  },
-  {
-    id: '4',
-    name: 'Upper Body Power',
-    duration: '40 min',
-    exercises: 7,
-    difficulty: 'Intermediate',
-    category: 'Strength',
-    emoji: '⚡',
-  },
-];
+const DAY_ABBR: Record<string, string> = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' };
+const STYLE_COLORS: Record<string, string> = { hiit: '#EF4444', strength: '#2563EB', circuit: '#10B981', bodyweight: '#8B5CF6', mixed: '#F59E0B' };
 
-export default function WorkoutScreen() {
-  const { user } = useAuth();
-  const { workouts, currentSession, restTimerActive, restFormattedTime } = useWorkout();
-  const router = useRouter();
-  const [refreshing, setRefreshing] = useState(false);
+export default function WorkoutTab() {
+  const { profile } = useUser();
+  const { currentPlan, savePlan, startWorkout } = useWorkout();
+  const { generate, generating } = useWorkoutGenerator();
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
-  }, []);
+  useEffect(() => {
+    if (!currentPlan && profile.onboardingComplete) {
+      generate(profile).then((plan) => { if (plan) savePlan(plan); });
+    }
+  }, [profile.onboardingComplete]);
 
-  const greeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
+  const todayKey = ['sun','mon','tue','wed','thu','fri','sat'][new Date().getDay()];
+  const todayWorkout = currentPlan?.days?.find((d: any) => d.dayKey === todayKey)?.workout;
+
+  const handleStart = (workout: any) => {
+    startWorkout(workout);
+    router.push('/workout/active');
   };
+
+  if (generating) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingCenter}>
+          <Text style={styles.loadingText}>Generating your plan…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="light" />
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brand.white} />}
-      >
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>{greeting()},</Text>
-            <Text style={styles.userName}>{user?.displayName?.split(' ')[0] ?? 'Athlete'} 👋</Text>
+            <Text style={styles.greeting}>Hey, {profile.name?.split(' ')[0] || 'there'} 👋</Text>
+            <Text style={styles.subtitle}>Ready to train today?</Text>
           </View>
-          <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/settings')}>
-            <Text style={styles.settingsIcon}>⚙️</Text>
-          </TouchableOpacity>
+          <View style={styles.streakBadge}>
+            <Text style={styles.streakFire}>🔥</Text>
+            <Text style={styles.streakNum}>12</Text>
+          </View>
         </View>
 
-        {/* Active rest timer banner */}
-        {restTimerActive && (
-          <TouchableOpacity
-            style={styles.restTimerBanner}
-            onPress={() => router.push('/workout/rest-timer')}
-          >
-            <Text style={styles.restTimerLabel}>Rest Timer</Text>
-            <Text style={styles.restTimerTime}>{restFormattedTime}</Text>
-            <Text style={styles.restTimerAction}>Tap to view →</Text>
-          </TouchableOpacity>
+        {/* Today's Workout */}
+        {todayWorkout ? (
+          <View style={styles.todayCard}>
+            <View style={styles.todayHeader}>
+              <Text style={styles.todayLabel}>TODAY'S WORKOUT</Text>
+              <View style={[styles.stylePill, { backgroundColor: STYLE_COLORS[todayWorkout.style] || '#2563EB' }]}>
+                <Text style={styles.stylePillText}>{todayWorkout.style?.toUpperCase()}</Text>
+              </View>
+            </View>
+            <Text style={styles.todayName}>{todayWorkout.name}</Text>
+            <View style={styles.todayMeta}>
+              <Text style={styles.metaItem}>⏱ {formatDurationMinutes(todayWorkout.duration)}</Text>
+              <Text style={styles.metaItem}>💪 {todayWorkout.exerciseCount} exercises</Text>
+              <Text style={styles.metaItem}>🔥 ~{todayWorkout.estimatedCalories} kcal</Text>
+            </View>
+            <TouchableOpacity style={styles.startBtn} onPress={() => handleStart(todayWorkout)}>
+              <Text style={styles.startBtnText}>Start Workout</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.restCard}>
+            <Text style={styles.restIcon}>😴</Text>
+            <Text style={styles.restTitle}>Rest Day</Text>
+            <Text style={styles.restDesc}>No workout scheduled today. Recovery is key!</Text>
+          </View>
         )}
 
-        {/* Today's Plan */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Today's Plan</Text>
-          <View style={styles.todayCard}>
-            <Text style={styles.todayEmoji}>🎯</Text>
-            <View style={styles.todayInfo}>
-              <Text style={styles.todayTitle}>Full Body Strength</Text>
-              <Text style={styles.todayMeta}>45 min · 8 exercises</Text>
+        {/* Weekly Plan */}
+        <Text style={styles.sectionTitle}>This Week</Text>
+        <View style={styles.weekRow}>
+          {(currentPlan?.days || []).map((d: any) => {
+            const isToday = d.dayKey === todayKey;
+            const hasWorkout = !!d.workout;
+            return (
+              <TouchableOpacity
+                key={d.dayKey}
+                style={[styles.dayChip, isToday && styles.dayChipToday, !hasWorkout && styles.dayChipRest]}
+                onPress={() => hasWorkout && handleStart(d.workout)}
+              >
+                <Text style={[styles.dayChipLabel, isToday && styles.dayChipLabelToday]}>{DAY_ABBR[d.dayKey]}</Text>
+                <Text style={styles.dayChipIcon}>{hasWorkout ? '💪' : '—'}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Upcoming workouts list */}
+        <Text style={styles.sectionTitle}>Upcoming</Text>
+        {(currentPlan?.days || []).filter((d: any) => d.workout).map((d: any) => (
+          <TouchableOpacity key={d.dayKey} style={styles.upcomingCard} onPress={() => handleStart(d.workout)}>
+            <View style={[styles.upcomingDot, { backgroundColor: STYLE_COLORS[d.workout.style] || '#2563EB' }]} />
+            <View style={styles.upcomingInfo}>
+              <Text style={styles.upcomingName}>{d.workout.name}</Text>
+              <Text style={styles.upcomingMeta}>{DAY_ABBR[d.dayKey]} · {formatDurationMinutes(d.workout.duration)} · {d.workout.exerciseCount} exercises</Text>
             </View>
-            <TouchableOpacity
-              style={styles.startBtn}
-              onPress={() => router.push('/workout/1')}
-            >
-              <Text style={styles.startBtnText}>Start</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Weekly Overview */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>This Week</Text>
-          <View style={styles.weekRow}>
-            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) => (
-              <View key={index} style={[styles.dayDot, index < 3 && styles.dayDotCompleted]}>
-                <Text style={[styles.dayLabel, index < 3 && styles.dayLabelCompleted]}>{day}</Text>
-              </View>
-            ))}
-          </View>
-          <Text style={styles.weekSummary}>3 of 5 workouts completed this week 🏆</Text>
-        </View>
-
-        {/* Workout Library */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Workout Library</Text>
-          {SAMPLE_WORKOUTS.map((workout) => (
-            <TouchableOpacity
-              key={workout.id}
-              style={styles.workoutCard}
-              onPress={() => router.push(`/workout/${workout.id}`)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.workoutEmoji}>{workout.emoji}</Text>
-              <View style={styles.workoutInfo}>
-                <Text style={styles.workoutName}>{workout.name}</Text>
-                <Text style={styles.workoutMeta}>
-                  {workout.duration} · {workout.exercises} exercises · {workout.difficulty}
-                </Text>
-              </View>
-              <View style={[styles.categoryBadge, getCategoryStyle(workout.category)]}>
-                <Text style={styles.categoryText}>{workout.category}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
+            <Text style={styles.upcomingArrow}>›</Text>
+          </TouchableOpacity>
+        ))}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function getCategoryStyle(category: string) {
-  switch (category) {
-    case 'Strength': return { backgroundColor: 'rgba(74,144,217,0.2)' };
-    case 'Cardio': return { backgroundColor: 'rgba(255,87,87,0.2)' };
-    case 'Flexibility': return { backgroundColor: 'rgba(76,175,80,0.2)' };
-    default: return { backgroundColor: 'rgba(255,255,255,0.1)' };
-  }
-}
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.brand.primary },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingTop: 12,
-  },
-  greeting: { color: 'rgba(255,255,255,0.7)', fontSize: 14 },
-  userName: { color: Colors.brand.white, fontSize: 24, fontWeight: '800' },
-  settingsBtn: { padding: 8 },
-  settingsIcon: { fontSize: 22 },
-  restTimerBanner: {
-    margin: 16,
-    backgroundColor: Colors.brand.accent,
-    borderRadius: 14,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  restTimerLabel: { color: Colors.brand.white, fontWeight: '600', fontSize: 14 },
-  restTimerTime: { color: Colors.brand.white, fontWeight: '800', fontSize: 28 },
-  restTimerAction: { color: 'rgba(255,255,255,0.8)', fontSize: 13 },
-  section: { padding: 20, paddingTop: 4 },
-  sectionTitle: { color: Colors.brand.white, fontSize: 18, fontWeight: '700', marginBottom: 14 },
-  todayCard: {
-    backgroundColor: Colors.brand.cardBackground,
-    borderRadius: 16,
-    padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  todayEmoji: { fontSize: 36 },
-  todayInfo: { flex: 1 },
-  todayTitle: { color: Colors.brand.white, fontSize: 16, fontWeight: '700' },
-  todayMeta: { color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 2 },
-  startBtn: {
-    backgroundColor: Colors.brand.white,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-  },
-  startBtnText: { color: Colors.brand.primary, fontWeight: '700', fontSize: 14 },
-  weekRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  dayDot: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayDotCompleted: { backgroundColor: Colors.brand.white },
-  dayLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '600' },
-  dayLabelCompleted: { color: Colors.brand.primary },
-  weekSummary: { color: 'rgba(255,255,255,0.7)', fontSize: 13 },
-  workoutCard: {
-    backgroundColor: Colors.brand.cardBackground,
-    borderRadius: 14,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 10,
-  },
-  workoutEmoji: { fontSize: 30 },
-  workoutInfo: { flex: 1 },
-  workoutName: { color: Colors.brand.white, fontSize: 15, fontWeight: '700' },
-  workoutMeta: { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 2 },
-  categoryBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  categoryText: { color: Colors.brand.white, fontSize: 11, fontWeight: '600' },
+  container: { flex: 1, backgroundColor: '#F9FAFB' },
+  scroll: { paddingHorizontal: 20, paddingBottom: 32 },
+  loadingCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  loadingText: { fontSize: 16, color: '#6B7280' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 20 },
+  greeting: { fontSize: 22, fontWeight: '800', color: '#111827' },
+  subtitle: { fontSize: 14, color: '#6B7280', marginTop: 2 },
+  streakBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, gap: 4 },
+  streakFire: { fontSize: 18 },
+  streakNum: { fontSize: 16, fontWeight: '800', color: '#D97706' },
+  todayCard: { backgroundColor: '#fff', borderRadius: 20, padding: 20, marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
+  todayHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  todayLabel: { fontSize: 11, fontWeight: '700', color: '#9CA3AF', letterSpacing: 1 },
+  stylePill: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+  stylePillText: { fontSize: 10, fontWeight: '700', color: '#fff' },
+  todayName: { fontSize: 22, fontWeight: '800', color: '#111827', marginBottom: 12 },
+  todayMeta: { flexDirection: 'row', gap: 12, marginBottom: 16, flexWrap: 'wrap' },
+  metaItem: { fontSize: 13, color: '#6B7280' },
+  startBtn: { backgroundColor: '#2563EB', borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center' },
+  startBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  restCard: { backgroundColor: '#fff', borderRadius: 20, padding: 24, alignItems: 'center', marginBottom: 20 },
+  restIcon: { fontSize: 40, marginBottom: 8 },
+  restTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
+  restDesc: { fontSize: 14, color: '#6B7280', marginTop: 4, textAlign: 'center' },
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: '#111827', marginBottom: 12, marginTop: 4 },
+  weekRow: { flexDirection: 'row', gap: 8, marginBottom: 24, flexWrap: 'wrap' },
+  dayChip: { flex: 1, minWidth: 40, alignItems: 'center', borderRadius: 12, backgroundColor: '#fff', paddingVertical: 10, gap: 4 },
+  dayChipToday: { backgroundColor: '#2563EB' },
+  dayChipRest: { backgroundColor: '#F3F4F6' },
+  dayChipLabel: { fontSize: 11, fontWeight: '700', color: '#374151' },
+  dayChipLabelToday: { color: '#fff' },
+  dayChipIcon: { fontSize: 14 },
+  upcomingCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 16, marginBottom: 10, gap: 12 },
+  upcomingDot: { width: 12, height: 12, borderRadius: 6 },
+  upcomingInfo: { flex: 1 },
+  upcomingName: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  upcomingMeta: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  upcomingArrow: { fontSize: 20, color: '#9CA3AF' },
 });

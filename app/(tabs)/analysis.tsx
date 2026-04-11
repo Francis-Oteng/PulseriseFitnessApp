@@ -1,210 +1,160 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
-import { Colors } from '@/constants/Colors';
-import { useAuth } from '@/contexts/AuthContext';
+import React from 'react';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
+import { useProgressContext } from '../../src/context/ProgressContext';
+import { dummyWorkoutHistory } from '../../src/data/achievements';
+import { formatRelativeDate, formatDurationMinutes } from '../../src/utils/formatters';
+import { achievements as allAchievements, streakRewards } from '../../src/data/achievements';
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const BAR_MAX = 400;
 
-type Period = 'week' | 'month' | 'year';
+export default function AnalysisTab() {
+  const { stats, history, unlockedAchievements, levelInfo } = useProgressContext();
+  const displayHistory = history.length > 0 ? history : dummyWorkoutHistory;
 
-const MOCK_STATS = {
-  totalWorkouts: 24,
-  totalMinutes: 960,
-  avgDuration: 40,
-  streak: 5,
-  weeklyData: [3, 2, 4, 3, 5, 2, 3],
-  monthlyData: [12, 15, 18, 22, 19, 24],
-};
-
-export default function AnalysisScreen() {
-  const { user } = useAuth();
-  const [period, setPeriod] = useState<Period>('week');
-
-  const barData = period === 'week' ? MOCK_STATS.weeklyData : MOCK_STATS.monthlyData;
-  const maxBar = Math.max(...barData);
-  const barLabels = period === 'week'
-    ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-    : MONTHS.slice(0, 6);
+  const xpPercent = levelInfo ? levelInfo.progressPercent : 0;
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="light" />
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Analysis</Text>
-          <Text style={styles.subtitle}>Track your progress</Text>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <Text style={styles.pageTitle}>Progress</Text>
+
+        {/* Level card */}
+        <View style={styles.levelCard}>
+          <View style={styles.levelTop}>
+            <Text style={styles.levelBadge}>Lv {levelInfo?.level || 1}</Text>
+            <Text style={styles.levelTitle}>{levelInfo?.title || 'Newcomer'}</Text>
+            <Text style={styles.xpLabel}>{levelInfo?.xpToNext || 0} XP to next level</Text>
+          </View>
+          <View style={styles.xpTrack}>
+            <View style={[styles.xpFill, { width: `${xpPercent}%` }]} />
+          </View>
+          <Text style={styles.xpTotal}>{stats.xp || 0} total XP</Text>
         </View>
 
-        {/* Stats Cards */}
-        <View style={styles.statsGrid}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{MOCK_STATS.totalWorkouts}</Text>
-            <Text style={styles.statLabel}>Total Workouts</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{MOCK_STATS.streak}</Text>
-            <Text style={styles.statLabel}>Day Streak 🔥</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{MOCK_STATS.totalMinutes}</Text>
-            <Text style={styles.statLabel}>Total Minutes</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{MOCK_STATS.avgDuration}m</Text>
-            <Text style={styles.statLabel}>Avg Duration</Text>
-          </View>
-        </View>
-
-        {/* Workout Frequency Chart */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Workout Frequency</Text>
-            <View style={styles.periodToggle}>
-              {(['week', 'month'] as Period[]).map((p) => (
-                <TouchableOpacity
-                  key={p}
-                  style={[styles.periodBtn, period === p && styles.periodBtnActive]}
-                  onPress={() => setPeriod(p)}
-                >
-                  <Text style={[styles.periodText, period === p && styles.periodTextActive]}>
-                    {p === 'week' ? 'Week' : 'Month'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+        {/* Stats row */}
+        <View style={styles.statsRow}>
+          {[
+            { label: 'Workouts', value: stats.totalWorkouts || 0, icon: '💪' },
+            { label: 'Streak', value: `${stats.currentStreak || 0}d`, icon: '🔥' },
+            { label: 'Hours', value: `${Math.floor((stats.totalMinutes || 0) / 60)}h`, icon: '⏱' },
+            { label: 'kcal', value: Math.round((stats.totalCaloriesBurned || 0) / 1000) + 'k', icon: '🔥' },
+          ].map((s) => (
+            <View key={s.label} style={styles.statCard}>
+              <Text style={styles.statIcon}>{s.icon}</Text>
+              <Text style={styles.statValue}>{s.value}</Text>
+              <Text style={styles.statLabel}>{s.label}</Text>
             </View>
-          </View>
+          ))}
+        </View>
 
-          <View style={styles.chartContainer}>
-            {barData.map((value, index) => (
-              <View key={index} style={styles.barColumn}>
-                <Text style={styles.barValue}>{value}</Text>
-                <View style={styles.barWrapper}>
-                  <View
-                    style={[
-                      styles.bar,
-                      { height: maxBar > 0 ? (value / maxBar) * 120 : 0 },
-                    ]}
-                  />
+        {/* Weekly volume bars */}
+        <Text style={styles.sectionTitle}>This Week</Text>
+        <View style={styles.barsCard}>
+          {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) => {
+            const vol = [280, 0, 340, 0, 350, 0, 0][i];
+            return (
+              <View key={d} style={styles.barCol}>
+                <View style={styles.barTrack}>
+                  <View style={[styles.barFill, { height: `${Math.round((vol / BAR_MAX) * 100)}%` }]} />
                 </View>
-                <Text style={styles.barLabel}>{barLabels[index]}</Text>
+                <Text style={styles.barLabel}>{d}</Text>
               </View>
-            ))}
+            );
+          })}
+        </View>
+
+        {/* Streak rewards */}
+        <Text style={styles.sectionTitle}>Streak Rewards</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.streakScroll} contentContainerStyle={{ gap: 12, paddingRight: 24 }}>
+          {streakRewards.map((sr) => {
+            const earned = (stats.longestStreak || 0) >= sr.days;
+            return (
+              <View key={sr.days} style={[styles.streakCard, earned && styles.streakCardEarned]}>
+                <Text style={styles.streakIcon}>{sr.icon}</Text>
+                <Text style={[styles.streakName, earned && styles.streakNameEarned]}>{sr.reward}</Text>
+                <Text style={styles.streakDays}>{sr.days} days</Text>
+              </View>
+            );
+          })}
+        </ScrollView>
+
+        {/* Achievements */}
+        <Text style={styles.sectionTitle}>Achievements</Text>
+        <View style={styles.achGrid}>
+          {allAchievements.map((ach) => {
+            const earned = unlockedAchievements.includes(ach.id);
+            return (
+              <View key={ach.id} style={[styles.achCard, !earned && styles.achCardLocked]}>
+                <Text style={[styles.achIcon, !earned && styles.achIconLocked]}>{ach.icon}</Text>
+                <Text style={[styles.achName, !earned && styles.achNameLocked]}>{ach.name}</Text>
+                <Text style={styles.achDesc}>{ach.description}</Text>
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Recent workouts */}
+        <Text style={styles.sectionTitle}>Recent Workouts</Text>
+        {displayHistory.slice(0, 5).map((w: any) => (
+          <View key={w.id} style={styles.historyCard}>
+            <View style={styles.historyLeft}>
+              <Text style={styles.historyName}>{w.workoutName}</Text>
+              <Text style={styles.historyMeta}>{formatRelativeDate(w.date)} · {formatDurationMinutes(w.durationMinutes)}</Text>
+            </View>
+            <View style={styles.historyRight}>
+              <Text style={styles.historyCalories}>~{w.estimatedCalories} kcal</Text>
+              <Text style={styles.historyCheck}>{w.completed ? '✅' : '❌'}</Text>
+            </View>
           </View>
-        </View>
-
-        {/* Personal Records */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Personal Records</Text>
-          {[
-            { exercise: 'Bench Press', value: '80 kg', date: '3 days ago' },
-            { exercise: 'Squat', value: '100 kg', date: '1 week ago' },
-            { exercise: 'Deadlift', value: '120 kg', date: '2 weeks ago' },
-            { exercise: '5K Run', value: '24:30', date: '5 days ago' },
-          ].map((pr, index) => (
-            <View key={index} style={styles.prCard}>
-              <View style={styles.prIcon}>
-                <Text style={styles.prIconText}>🏆</Text>
-              </View>
-              <View style={styles.prInfo}>
-                <Text style={styles.prExercise}>{pr.exercise}</Text>
-                <Text style={styles.prDate}>{pr.date}</Text>
-              </View>
-              <Text style={styles.prValue}>{pr.value}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Recent Activity */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
-          {[
-            { name: 'Full Body Strength', date: 'Today', duration: '45 min', exercises: 8 },
-            { name: 'HIIT Cardio', date: 'Yesterday', duration: '30 min', exercises: 6 },
-            { name: 'Core & Flexibility', date: '3 days ago', duration: '25 min', exercises: 10 },
-          ].map((activity, index) => (
-            <View key={index} style={styles.activityCard}>
-              <View style={styles.activityInfo}>
-                <Text style={styles.activityName}>{activity.name}</Text>
-                <Text style={styles.activityMeta}>
-                  {activity.date} · {activity.duration} · {activity.exercises} exercises
-                </Text>
-              </View>
-              <Text style={styles.activityCheck}>✓</Text>
-            </View>
-          ))}
-        </View>
+        ))}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.brand.primary },
-  header: { padding: 20, paddingTop: 12 },
-  title: { fontSize: 28, fontWeight: '800', color: Colors.brand.white },
-  subtitle: { color: 'rgba(255,255,255,0.6)', fontSize: 14, marginTop: 4 },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    paddingHorizontal: 20,
-    marginBottom: 8,
-  },
-  statCard: {
-    width: '47%',
-    backgroundColor: Colors.brand.cardBackground,
-    borderRadius: 14,
-    padding: 16,
-  },
-  statValue: { fontSize: 28, fontWeight: '800', color: Colors.brand.white },
-  statLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 4 },
-  section: { padding: 20, paddingTop: 8 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  sectionTitle: { color: Colors.brand.white, fontSize: 18, fontWeight: '700' },
-  periodToggle: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 10, overflow: 'hidden' },
-  periodBtn: { paddingHorizontal: 14, paddingVertical: 8 },
-  periodBtnActive: { backgroundColor: Colors.brand.white },
-  periodText: { color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '600' },
-  periodTextActive: { color: Colors.brand.primary },
-  chartContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 160 },
-  barColumn: { alignItems: 'center', flex: 1 },
-  barValue: { color: 'rgba(255,255,255,0.6)', fontSize: 11, marginBottom: 4 },
-  barWrapper: { height: 120, justifyContent: 'flex-end', width: '70%' },
-  bar: { backgroundColor: Colors.brand.accent, borderRadius: 6, width: '100%' },
-  barLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 6 },
-  prCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.brand.cardBackground,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
-    gap: 12,
-  },
-  prIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-  prIconText: { fontSize: 18 },
-  prInfo: { flex: 1 },
-  prExercise: { color: Colors.brand.white, fontWeight: '600', fontSize: 14 },
-  prDate: { color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 2 },
-  prValue: { color: Colors.brand.white, fontWeight: '800', fontSize: 16 },
-  activityCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.brand.cardBackground,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
-  },
-  activityInfo: { flex: 1 },
-  activityName: { color: Colors.brand.white, fontWeight: '600', fontSize: 14 },
-  activityMeta: { color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 2 },
-  activityCheck: { color: Colors.brand.success, fontSize: 18, fontWeight: '700' },
+  container: { flex: 1, backgroundColor: '#F9FAFB' },
+  scroll: { paddingHorizontal: 20, paddingBottom: 32 },
+  pageTitle: { fontSize: 26, fontWeight: '800', color: '#111827', paddingTop: 20, marginBottom: 16 },
+  levelCard: { backgroundColor: '#1E40AF', borderRadius: 20, padding: 20, marginBottom: 16 },
+  levelTop: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
+  levelBadge: { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4, fontSize: 13, fontWeight: '700', color: '#fff' },
+  levelTitle: { fontSize: 18, fontWeight: '800', color: '#fff', flex: 1 },
+  xpLabel: { fontSize: 12, color: 'rgba(255,255,255,0.7)' },
+  xpTrack: { height: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 4, overflow: 'hidden', marginBottom: 6 },
+  xpFill: { height: '100%', backgroundColor: '#06B6D4', borderRadius: 4 },
+  xpTotal: { fontSize: 12, color: 'rgba(255,255,255,0.6)', textAlign: 'right' },
+  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 12, alignItems: 'center' },
+  statIcon: { fontSize: 20, marginBottom: 4 },
+  statValue: { fontSize: 20, fontWeight: '800', color: '#111827' },
+  statLabel: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: '#111827', marginBottom: 12, marginTop: 4 },
+  barsCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, flexDirection: 'row', gap: 8, marginBottom: 24, height: 140, alignItems: 'flex-end' },
+  barCol: { flex: 1, alignItems: 'center', height: '100%', justifyContent: 'flex-end' },
+  barTrack: { width: '100%', height: '80%', backgroundColor: '#F3F4F6', borderRadius: 6, overflow: 'hidden', justifyContent: 'flex-end' },
+  barFill: { width: '100%', backgroundColor: '#2563EB', borderRadius: 6 },
+  barLabel: { fontSize: 10, color: '#9CA3AF', marginTop: 4 },
+  streakScroll: { marginBottom: 24 },
+  streakCard: { width: 90, alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 12, borderWidth: 2, borderColor: '#E5E7EB' },
+  streakCardEarned: { borderColor: '#F59E0B', backgroundColor: '#FFFBEB' },
+  streakIcon: { fontSize: 28, marginBottom: 4 },
+  streakName: { fontSize: 11, fontWeight: '700', color: '#9CA3AF', textAlign: 'center' },
+  streakNameEarned: { color: '#D97706' },
+  streakDays: { fontSize: 10, color: '#9CA3AF', marginTop: 2 },
+  achGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
+  achCard: { width: '47%', backgroundColor: '#fff', borderRadius: 14, padding: 14 },
+  achCardLocked: { backgroundColor: '#F9FAFB', opacity: 0.5 },
+  achIcon: { fontSize: 28, marginBottom: 6 },
+  achIconLocked: { opacity: 0.4 },
+  achName: { fontSize: 13, fontWeight: '700', color: '#111827', marginBottom: 2 },
+  achNameLocked: { color: '#9CA3AF' },
+  achDesc: { fontSize: 11, color: '#9CA3AF', lineHeight: 16 },
+  historyCard: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 10, alignItems: 'center' },
+  historyLeft: { flex: 1 },
+  historyName: { fontSize: 14, fontWeight: '700', color: '#111827' },
+  historyMeta: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  historyRight: { alignItems: 'flex-end', gap: 4 },
+  historyCalories: { fontSize: 13, fontWeight: '600', color: '#374151' },
+  historyCheck: { fontSize: 16 },
 });

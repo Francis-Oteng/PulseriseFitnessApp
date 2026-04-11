@@ -1,177 +1,81 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors } from '@/constants/Colors';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
+import { router } from 'expo-router';
+import { useUser } from '../../src/context/UserContext';
+import OnboardingHeader from '../../src/components/onboarding/OnboardingHeader';
 
-const FITNESS_LEVELS = [
-  {
-    id: 'beginner',
-    label: 'Beginner',
-    icon: '🌱',
-    description: 'New to fitness or returning after a long break. Focus on building habits.',
-    workoutsPerWeek: '2–3 workouts',
-  },
-  {
-    id: 'intermediate',
-    label: 'Intermediate',
-    icon: '🔥',
-    description: 'Active for 6+ months with consistent training. Ready to push harder.',
-    workoutsPerWeek: '3–5 workouts',
-  },
-  {
-    id: 'advanced',
-    label: 'Advanced',
-    icon: '⚡',
-    description: 'Experienced athlete with 2+ years of training. High intensity focus.',
-    workoutsPerWeek: '5–6 workouts',
-  },
+const LEVELS = [
+  { id: 'beginner', label: 'Beginner', icon: '🌱', desc: 'New to exercise or returning after 6+ months', examples: 'Walking, basic stretching, light activities' },
+  { id: 'intermediate', label: 'Intermediate', icon: '🔥', desc: 'Exercise regularly (1–3× per week)', examples: 'Gym sessions, jogging, group fitness classes' },
+  { id: 'advanced', label: 'Advanced', icon: '⚡', desc: 'Consistent training (4+ times per week)', examples: 'Weightlifting, CrossFit, competitive sports' },
 ];
 
-const FITNESS_LEVEL_KEY = '@pulserise_fitness_level';
-
 export default function FitnessLevelScreen() {
-  const router = useRouter();
-  const [selected, setSelected] = useState<string | null>(null);
+  const { profile, updateProfile } = useUser();
+  const [selected, setSelected] = useState<string | null>(profile.fitnessLevel || null);
 
   const handleNext = async () => {
     if (!selected) return;
-    await AsyncStorage.setItem(FITNESS_LEVEL_KEY, selected);
-    router.push('/(onboarding)/training-days');
+    await updateProfile({ fitnessLevel: selected });
+    router.push('/(onboarding)/parameters');
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '75%' }]} />
-          </View>
-          <Text style={styles.step}>Step 3 of 4</Text>
-          <Text style={styles.title}>Fitness Level</Text>
-          <Text style={styles.subtitle}>Choose what best describes your current fitness</Text>
-        </View>
-
+    <SafeAreaView style={styles.container}>
+      <OnboardingHeader step={2} total={8} onBack={() => router.back()} />
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <Text style={styles.question}>How would you describe your current fitness level?</Text>
         <View style={styles.cards}>
-          {FITNESS_LEVELS.map((level) => {
-            const isSelected = selected === level.id;
+          {LEVELS.map((l) => {
+            const active = selected === l.id;
             return (
-              <TouchableOpacity
-                key={level.id}
-                style={[styles.card, isSelected && styles.cardSelected]}
-                onPress={() => setSelected(level.id)}
-                activeOpacity={0.8}
-              >
+              <TouchableOpacity key={l.id} style={[styles.card, active && styles.cardActive]} onPress={() => setSelected(l.id)} activeOpacity={0.8}>
                 <View style={styles.cardTop}>
-                  <Text style={styles.icon}>{level.icon}</Text>
+                  <Text style={styles.icon}>{l.icon}</Text>
                   <View style={styles.cardInfo}>
-                    <Text style={[styles.cardLabel, isSelected && styles.cardLabelSelected]}>
-                      {level.label}
-                    </Text>
-                    <Text style={[styles.cardFreq, isSelected && styles.cardFreqSelected]}>
-                      {level.workoutsPerWeek}
-                    </Text>
+                    <Text style={[styles.cardLabel, active && styles.activeLabel]}>{l.label}</Text>
+                    <Text style={[styles.cardDesc, active && styles.activeDesc]}>{l.desc}</Text>
                   </View>
-                  {isSelected && (
-                    <View style={styles.radioSelected}>
-                      <View style={styles.radioDot} />
-                    </View>
-                  )}
-                  {!isSelected && <View style={styles.radio} />}
+                  <View style={[styles.radio, active && styles.radioActive]}>
+                    {active && <View style={styles.radioDot} />}
+                  </View>
                 </View>
-                <Text style={[styles.cardDesc, isSelected && styles.cardDescSelected]}>
-                  {level.description}
-                </Text>
+                <Text style={[styles.examples, active && styles.examplesActive]}>e.g. {l.examples}</Text>
               </TouchableOpacity>
             );
           })}
         </View>
-
-        <TouchableOpacity
-          style={[styles.nextButton, !selected && styles.nextButtonDisabled]}
-          onPress={handleNext}
-          disabled={!selected}
-        >
-          <Text style={styles.nextButtonText}>Next</Text>
-        </TouchableOpacity>
       </ScrollView>
-    </View>
+      <View style={styles.footer}>
+        <TouchableOpacity style={[styles.btn, !selected && styles.btnDisabled]} onPress={handleNext} disabled={!selected}>
+          <Text style={styles.btnText}>Continue</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.brand.primary },
-  content: { flexGrow: 1, padding: 24, paddingTop: 60 },
-  header: { marginBottom: 32 },
-  progressBar: {
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 2,
-    marginBottom: 12,
-  },
-  progressFill: { height: '100%', backgroundColor: Colors.brand.white, borderRadius: 2 },
-  step: { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 8 },
-  title: { fontSize: 28, fontWeight: '800', color: Colors.brand.white, marginBottom: 8 },
-  subtitle: { fontSize: 14, color: 'rgba(255,255,255,0.7)' },
-  cards: { gap: 16 },
-  card: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  cardSelected: {
-    backgroundColor: Colors.brand.white,
-    borderColor: Colors.brand.white,
-  },
-  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
-  icon: { fontSize: 36 },
+  container: { flex: 1, backgroundColor: '#fff' },
+  scroll: { paddingHorizontal: 24, paddingBottom: 24 },
+  question: { fontSize: 24, fontWeight: '800', color: '#111827', marginBottom: 20, marginTop: 4 },
+  cards: { gap: 14 },
+  card: { borderRadius: 16, borderWidth: 2, borderColor: '#E5E7EB', padding: 18, backgroundColor: '#fff' },
+  cardActive: { borderColor: '#2563EB', backgroundColor: '#EFF6FF' },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
+  icon: { fontSize: 32 },
   cardInfo: { flex: 1 },
-  cardLabel: { color: Colors.brand.white, fontSize: 18, fontWeight: '700' },
-  cardLabelSelected: { color: Colors.brand.primary },
-  cardFreq: { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 2 },
-  cardFreqSelected: { color: 'rgba(6,15,138,0.6)' },
-  cardDesc: { color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 18 },
-  cardDescSelected: { color: 'rgba(6,15,138,0.7)' },
-  radio: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.4)',
-  },
-  radioSelected: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: Colors.brand.primary,
-    backgroundColor: Colors.brand.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.brand.white,
-  },
-  nextButton: {
-    backgroundColor: Colors.brand.white,
-    borderRadius: 14,
-    padding: 18,
-    alignItems: 'center',
-    marginTop: 32,
-  },
-  nextButtonDisabled: { opacity: 0.4 },
-  nextButtonText: { color: Colors.brand.primary, fontSize: 16, fontWeight: '700' },
+  cardLabel: { fontSize: 18, fontWeight: '700', color: '#111827' },
+  activeLabel: { color: '#2563EB' },
+  cardDesc: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  activeDesc: { color: '#3B82F6' },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#D1D5DB', alignItems: 'center', justifyContent: 'center' },
+  radioActive: { borderColor: '#2563EB', backgroundColor: '#2563EB' },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#fff' },
+  examples: { fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' },
+  examplesActive: { color: '#60A5FA' },
+  footer: { padding: 24, paddingBottom: 32 },
+  btn: { backgroundColor: '#2563EB', borderRadius: 16, height: 56, alignItems: 'center', justifyContent: 'center' },
+  btnDisabled: { backgroundColor: '#93C5FD' },
+  btnText: { fontSize: 17, fontWeight: '700', color: '#fff' },
 });

@@ -1,179 +1,155 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  Alert,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors } from '@/constants/Colors';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
+import { router } from 'expo-router';
+import { useUser } from '../../src/context/UserContext';
+import OnboardingHeader from '../../src/components/onboarding/OnboardingHeader';
+import { calculateBMI, getBMICategory, kgToLbs, lbsToKg } from '../../src/utils/calculations';
 
-const PARAMS_KEY = '@pulserise_user_params';
+const GENDERS = [
+  { id: 'male', label: 'Male', icon: '♂' },
+  { id: 'female', label: 'Female', icon: '♀' },
+  { id: 'other', label: 'Prefer not to say', icon: '—' },
+];
 
 export default function ParametersScreen() {
-  const router = useRouter();
-  const [age, setAge] = useState('');
-  const [weight, setWeight] = useState('');
-  const [height, setHeight] = useState('');
-  const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>('kg');
+  const { profile, updateProfile } = useUser();
+  const [gender, setGender] = useState<string>(profile.gender || 'male');
+  const [age, setAge] = useState<number>(profile.age || 25);
   const [heightUnit, setHeightUnit] = useState<'cm' | 'ft'>('cm');
+  const [heightCm, setHeightCm] = useState<number>(profile.height?.value || 170);
+  const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>('kg');
+  const [weightKg, setWeightKg] = useState<number>(profile.currentWeight?.value || 70);
+
+  const displayWeight = weightUnit === 'kg' ? weightKg : Math.round(kgToLbs(weightKg));
+  const displayHeight = heightUnit === 'cm' ? heightCm : Math.round(heightCm / 2.54);
+
+  const bmi = calculateBMI(weightKg, heightCm);
+  const bmiCat = getBMICategory(bmi);
+
+  const adjustAge = (d: number) => setAge((a) => Math.max(16, Math.min(80, a + d)));
+  const adjustHeight = (d: number) => {
+    if (heightUnit === 'cm') setHeightCm((h) => Math.max(100, Math.min(250, h + d)));
+    else setHeightCm((h) => Math.max(100, Math.min(250, h + d * 2.54)));
+  };
+  const adjustWeight = (d: number) => {
+    if (weightUnit === 'kg') setWeightKg((w) => Math.max(30, Math.min(300, w + d)));
+    else setWeightKg((w) => Math.max(30, Math.min(300, w + d / 2.20462)));
+  };
 
   const handleNext = async () => {
-    if (!age || !weight || !height) {
-      Alert.alert('Required', 'Please fill in all fields to continue.');
-      return;
-    }
-    await AsyncStorage.setItem(
-      PARAMS_KEY,
-      JSON.stringify({ age: Number(age), weight: Number(weight), weightUnit, height: Number(height), heightUnit })
-    );
-    router.push('/(onboarding)/goals');
+    await updateProfile({
+      gender,
+      age,
+      height: { value: heightCm, unit: 'cm' },
+      currentWeight: { value: weightKg, unit: 'kg' },
+      bmi,
+    });
+    router.push('/(onboarding)/schedule');
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '25%' }]} />
-          </View>
-          <Text style={styles.step}>Step 1 of 4</Text>
-          <Text style={styles.title}>Your Parameters</Text>
-          <Text style={styles.subtitle}>Help us personalize your fitness plan</Text>
+    <SafeAreaView style={styles.container}>
+      <OnboardingHeader step={3} total={8} onBack={() => router.back()} />
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <Text style={styles.title}>Physical Information</Text>
+
+        {/* Gender */}
+        <Text style={styles.label}>Gender</Text>
+        <View style={styles.genderRow}>
+          {GENDERS.map((g) => (
+            <TouchableOpacity key={g.id} style={[styles.genderBtn, gender === g.id && styles.genderBtnActive]} onPress={() => setGender(g.id)}>
+              <Text style={styles.genderIcon}>{g.icon}</Text>
+              <Text style={[styles.genderLabel, gender === g.id && styles.genderLabelActive]}>{g.label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        <View style={styles.form}>
-          <View style={styles.field}>
-            <Text style={styles.label}>Age</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your age"
-              placeholderTextColor={Colors.brand.grey}
-              value={age}
-              onChangeText={setAge}
-              keyboardType="numeric"
-              maxLength={3}
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Weight</Text>
-            <View style={styles.inputRow}>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                placeholder="Enter weight"
-                placeholderTextColor={Colors.brand.grey}
-                value={weight}
-                onChangeText={setWeight}
-                keyboardType="decimal-pad"
-              />
-              <View style={styles.unitToggle}>
-                <TouchableOpacity
-                  style={[styles.unitBtn, weightUnit === 'kg' && styles.unitBtnActive]}
-                  onPress={() => setWeightUnit('kg')}
-                >
-                  <Text style={[styles.unitText, weightUnit === 'kg' && styles.unitTextActive]}>kg</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.unitBtn, weightUnit === 'lbs' && styles.unitBtnActive]}
-                  onPress={() => setWeightUnit('lbs')}
-                >
-                  <Text style={[styles.unitText, weightUnit === 'lbs' && styles.unitTextActive]}>lbs</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Height</Text>
-            <View style={styles.inputRow}>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                placeholder="Enter height"
-                placeholderTextColor={Colors.brand.grey}
-                value={height}
-                onChangeText={setHeight}
-                keyboardType="decimal-pad"
-              />
-              <View style={styles.unitToggle}>
-                <TouchableOpacity
-                  style={[styles.unitBtn, heightUnit === 'cm' && styles.unitBtnActive]}
-                  onPress={() => setHeightUnit('cm')}
-                >
-                  <Text style={[styles.unitText, heightUnit === 'cm' && styles.unitTextActive]}>cm</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.unitBtn, heightUnit === 'ft' && styles.unitBtnActive]}
-                  onPress={() => setHeightUnit('ft')}
-                >
-                  <Text style={[styles.unitText, heightUnit === 'ft' && styles.unitTextActive]}>ft</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
+        {/* Age */}
+        <Text style={styles.label}>Age</Text>
+        <View style={styles.stepper}>
+          <TouchableOpacity style={styles.stepBtn} onPress={() => adjustAge(-1)}><Text style={styles.stepBtnText}>−</Text></TouchableOpacity>
+          <Text style={styles.stepValue}>{age} <Text style={styles.stepUnit}>yrs</Text></Text>
+          <TouchableOpacity style={styles.stepBtn} onPress={() => adjustAge(1)}><Text style={styles.stepBtnText}>+</Text></TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-          <Text style={styles.nextButtonText}>Next</Text>
-        </TouchableOpacity>
+        {/* Height */}
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>Height</Text>
+          <View style={styles.unitToggle}>
+            {(['cm', 'ft'] as const).map((u) => (
+              <TouchableOpacity key={u} style={[styles.unitBtn, heightUnit === u && styles.unitBtnActive]} onPress={() => setHeightUnit(u)}>
+                <Text style={[styles.unitBtnText, heightUnit === u && styles.unitBtnTextActive]}>{u}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+        <View style={styles.stepper}>
+          <TouchableOpacity style={styles.stepBtn} onPress={() => adjustHeight(-1)}><Text style={styles.stepBtnText}>−</Text></TouchableOpacity>
+          <Text style={styles.stepValue}>{displayHeight} <Text style={styles.stepUnit}>{heightUnit}</Text></Text>
+          <TouchableOpacity style={styles.stepBtn} onPress={() => adjustHeight(1)}><Text style={styles.stepBtnText}>+</Text></TouchableOpacity>
+        </View>
+
+        {/* Weight */}
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>Current Weight</Text>
+          <View style={styles.unitToggle}>
+            {(['kg', 'lbs'] as const).map((u) => (
+              <TouchableOpacity key={u} style={[styles.unitBtn, weightUnit === u && styles.unitBtnActive]} onPress={() => setWeightUnit(u)}>
+                <Text style={[styles.unitBtnText, weightUnit === u && styles.unitBtnTextActive]}>{u}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+        <View style={styles.stepper}>
+          <TouchableOpacity style={styles.stepBtn} onPress={() => adjustWeight(-1)}><Text style={styles.stepBtnText}>−</Text></TouchableOpacity>
+          <Text style={styles.stepValue}>{displayWeight} <Text style={styles.stepUnit}>{weightUnit}</Text></Text>
+          <TouchableOpacity style={styles.stepBtn} onPress={() => adjustWeight(1)}><Text style={styles.stepBtnText}>+</Text></TouchableOpacity>
+        </View>
+
+        {/* BMI */}
+        {bmi && (
+          <View style={[styles.bmiCard, { borderLeftColor: bmiCat?.color }]}>
+            <Text style={styles.bmiLabel}>Your BMI</Text>
+            <Text style={[styles.bmiValue, { color: bmiCat?.color }]}>{bmi} <Text style={styles.bmiCat}>{bmiCat?.label}</Text></Text>
+          </View>
+        )}
       </ScrollView>
-    </View>
+      <View style={styles.footer}>
+        <TouchableOpacity style={styles.btn} onPress={handleNext}>
+          <Text style={styles.btnText}>Continue</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.brand.primary },
-  content: { flexGrow: 1, padding: 24, paddingTop: 60 },
-  header: { marginBottom: 32 },
-  progressBar: {
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 2,
-    marginBottom: 12,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: Colors.brand.white,
-    borderRadius: 2,
-  },
-  step: { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 8 },
-  title: { fontSize: 28, fontWeight: '800', color: Colors.brand.white, marginBottom: 8 },
-  subtitle: { fontSize: 14, color: 'rgba(255,255,255,0.7)' },
-  form: { gap: 20 },
-  field: { gap: 8 },
-  label: { color: Colors.brand.white, fontSize: 14, fontWeight: '600' },
-  input: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 12,
-    padding: 16,
-    color: Colors.brand.white,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  inputRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
-  unitToggle: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  unitBtn: { paddingHorizontal: 14, paddingVertical: 10 },
-  unitBtnActive: { backgroundColor: Colors.brand.white },
-  unitText: { color: 'rgba(255,255,255,0.7)', fontWeight: '600', fontSize: 13 },
-  unitTextActive: { color: Colors.brand.primary },
-  nextButton: {
-    backgroundColor: Colors.brand.white,
-    borderRadius: 14,
-    padding: 18,
-    alignItems: 'center',
-    marginTop: 40,
-  },
-  nextButtonText: { color: Colors.brand.primary, fontSize: 16, fontWeight: '700' },
+  container: { flex: 1, backgroundColor: '#fff' },
+  scroll: { paddingHorizontal: 24, paddingBottom: 24 },
+  title: { fontSize: 24, fontWeight: '800', color: '#111827', marginBottom: 24, marginTop: 4 },
+  label: { fontSize: 15, fontWeight: '600', color: '#374151', marginBottom: 10 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  genderRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
+  genderBtn: { flex: 1, alignItems: 'center', borderRadius: 12, borderWidth: 2, borderColor: '#E5E7EB', paddingVertical: 14, backgroundColor: '#fff' },
+  genderBtnActive: { borderColor: '#2563EB', backgroundColor: '#EFF6FF' },
+  genderIcon: { fontSize: 22, marginBottom: 4 },
+  genderLabel: { fontSize: 12, fontWeight: '600', color: '#6B7280' },
+  genderLabelActive: { color: '#2563EB' },
+  stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#F9FAFB', borderRadius: 16, padding: 8, marginBottom: 24 },
+  stepBtn: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
+  stepBtnText: { fontSize: 24, color: '#2563EB', fontWeight: '700' },
+  stepValue: { fontSize: 28, fontWeight: '800', color: '#111827' },
+  stepUnit: { fontSize: 14, fontWeight: '400', color: '#9CA3AF' },
+  unitToggle: { flexDirection: 'row', backgroundColor: '#F3F4F6', borderRadius: 8, padding: 2 },
+  unitBtn: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 6 },
+  unitBtnActive: { backgroundColor: '#2563EB' },
+  unitBtnText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
+  unitBtnTextActive: { color: '#fff' },
+  bmiCard: { borderLeftWidth: 4, backgroundColor: '#F9FAFB', borderRadius: 12, padding: 16, marginTop: 4 },
+  bmiLabel: { fontSize: 12, color: '#6B7280', marginBottom: 4 },
+  bmiValue: { fontSize: 22, fontWeight: '800' },
+  bmiCat: { fontSize: 14, fontWeight: '600' },
+  footer: { padding: 24, paddingBottom: 32 },
+  btn: { backgroundColor: '#2563EB', borderRadius: 16, height: 56, alignItems: 'center', justifyContent: 'center' },
+  btnText: { fontSize: 17, fontWeight: '700', color: '#fff' },
 });

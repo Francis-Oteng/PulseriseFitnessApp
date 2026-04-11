@@ -1,153 +1,90 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors } from '@/constants/Colors';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
+import { router } from 'expo-router';
+import { useUser } from '../../src/context/UserContext';
+import OnboardingHeader from '../../src/components/onboarding/OnboardingHeader';
 
 const GOALS = [
-  { id: 'lose_weight', label: 'Lose Weight', icon: '⚡', description: 'Burn fat and get leaner' },
-  { id: 'build_muscle', label: 'Build Muscle', icon: '💪', description: 'Increase strength and mass' },
-  { id: 'improve_endurance', label: 'Improve Endurance', icon: '🏃', description: 'Boost cardio fitness' },
-  { id: 'stay_active', label: 'Stay Active', icon: '🌟', description: 'Maintain a healthy lifestyle' },
-  { id: 'sport_specific', label: 'Sport Specific', icon: '🏆', description: 'Train for your sport' },
-  { id: 'flexibility', label: 'Flexibility', icon: '🧘', description: 'Improve mobility and flexibility' },
+  { id: 'lose_weight', label: 'Lose Weight', desc: 'Burn fat and get leaner', icon: '🔥' },
+  { id: 'build_muscle', label: 'Build Muscle', desc: 'Increase strength and size', icon: '💪' },
+  { id: 'improve_endurance', label: 'Improve Endurance', desc: 'Boost stamina and cardio', icon: '🏃' },
+  { id: 'get_toned', label: 'Get Toned', desc: 'Define muscles without bulk', icon: '✨' },
+  { id: 'increase_flexibility', label: 'Increase Flexibility', desc: 'Improve mobility and recovery', icon: '🧘' },
+  { id: 'reduce_stress', label: 'Reduce Stress', desc: 'Feel better mentally and physically', icon: '🌿' },
+  { id: 'stay_active', label: 'Stay Active', desc: 'Maintain general fitness', icon: '⚡' },
 ];
 
-const GOALS_KEY = '@pulserise_goals';
-
 export default function GoalsScreen() {
-  const router = useRouter();
-  const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
+  const { profile, updateProfile } = useUser();
+  const [selected, setSelected] = useState<string[]>(profile.goals?.map((g: any) => g.id) || []);
 
-  const toggleGoal = (id: string) => {
-    setSelectedGoals((prev) =>
-      prev.includes(id) ? prev.filter((g) => g !== id) : [...prev, id]
-    );
+  const toggle = (id: string) => {
+    setSelected((prev) => {
+      if (prev.includes(id)) return prev.filter((g) => g !== id);
+      if (prev.length >= 3) return prev;
+      return [...prev, id];
+    });
   };
 
   const handleNext = async () => {
-    if (selectedGoals.length === 0) {
-      return;
-    }
-    await AsyncStorage.setItem(GOALS_KEY, JSON.stringify(selectedGoals));
+    await updateProfile({ goals: selected.map((id, i) => ({ id, priority: i + 1 })) });
     router.push('/(onboarding)/fitness-level');
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '50%' }]} />
-          </View>
-          <Text style={styles.step}>Step 2 of 4</Text>
-          <Text style={styles.title}>Your Goals</Text>
-          <Text style={styles.subtitle}>Select all that apply to your fitness journey</Text>
-        </View>
-
-        <View style={styles.grid}>
-          {GOALS.map((goal) => {
-            const selected = selectedGoals.includes(goal.id);
+    <SafeAreaView style={styles.container}>
+      <OnboardingHeader step={1} total={8} onBack={() => router.back()} />
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <Text style={styles.question}>What do you want to achieve?</Text>
+        <Text style={styles.subtitle}>Select up to 3 goals · tap to rank by priority</Text>
+        <View style={styles.list}>
+          {GOALS.map((g) => {
+            const isSelected = selected.includes(g.id);
+            const priority = selected.indexOf(g.id) + 1;
             return (
-              <TouchableOpacity
-                key={goal.id}
-                style={[styles.goalCard, selected && styles.goalCardSelected]}
-                onPress={() => toggleGoal(goal.id)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.goalIcon}>{goal.icon}</Text>
-                <Text style={[styles.goalLabel, selected && styles.goalLabelSelected]}>
-                  {goal.label}
-                </Text>
-                <Text style={[styles.goalDesc, selected && styles.goalDescSelected]}>
-                  {goal.description}
-                </Text>
-                {selected && (
-                  <View style={styles.checkmark}>
-                    <Text style={styles.checkmarkText}>✓</Text>
+              <TouchableOpacity key={g.id} style={[styles.card, isSelected && styles.cardSelected]} onPress={() => toggle(g.id)} activeOpacity={0.8}>
+                <Text style={styles.goalIcon}>{g.icon}</Text>
+                <View style={styles.goalText}>
+                  <Text style={[styles.goalLabel, isSelected && styles.selectedText]}>{g.label}</Text>
+                  <Text style={[styles.goalDesc, isSelected && styles.selectedDesc]}>{g.desc}</Text>
+                </View>
+                {isSelected && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{priority}</Text>
                   </View>
                 )}
               </TouchableOpacity>
             );
           })}
         </View>
-
-        <TouchableOpacity
-          style={[styles.nextButton, selectedGoals.length === 0 && styles.nextButtonDisabled]}
-          onPress={handleNext}
-          disabled={selectedGoals.length === 0}
-        >
-          <Text style={styles.nextButtonText}>Next</Text>
-        </TouchableOpacity>
       </ScrollView>
-    </View>
+      <View style={styles.footer}>
+        <TouchableOpacity style={[styles.btn, selected.length === 0 && styles.btnDisabled]} onPress={handleNext} disabled={selected.length === 0}>
+          <Text style={styles.btnText}>Continue</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.brand.primary },
-  content: { flexGrow: 1, padding: 24, paddingTop: 60 },
-  header: { marginBottom: 32 },
-  progressBar: {
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 2,
-    marginBottom: 12,
-  },
-  progressFill: { height: '100%', backgroundColor: Colors.brand.white, borderRadius: 2 },
-  step: { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 8 },
-  title: { fontSize: 28, fontWeight: '800', color: Colors.brand.white, marginBottom: 8 },
-  subtitle: { fontSize: 14, color: 'rgba(255,255,255,0.7)' },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  goalCard: {
-    width: '47%',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    position: 'relative',
-  },
-  goalCardSelected: {
-    backgroundColor: Colors.brand.white,
-    borderColor: Colors.brand.white,
-  },
-  goalIcon: { fontSize: 32, marginBottom: 8 },
-  goalLabel: { color: Colors.brand.white, fontSize: 14, fontWeight: '700', marginBottom: 4 },
-  goalLabelSelected: { color: Colors.brand.primary },
-  goalDesc: { color: 'rgba(255,255,255,0.6)', fontSize: 12 },
-  goalDescSelected: { color: 'rgba(6,15,138,0.7)' },
-  checkmark: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: Colors.brand.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkmarkText: { color: Colors.brand.white, fontSize: 11, fontWeight: '700' },
-  nextButton: {
-    backgroundColor: Colors.brand.white,
-    borderRadius: 14,
-    padding: 18,
-    alignItems: 'center',
-    marginTop: 32,
-  },
-  nextButtonDisabled: { opacity: 0.4 },
-  nextButtonText: { color: Colors.brand.primary, fontSize: 16, fontWeight: '700' },
+  container: { flex: 1, backgroundColor: '#fff' },
+  scroll: { paddingHorizontal: 24, paddingBottom: 24 },
+  question: { fontSize: 24, fontWeight: '800', color: '#111827', marginBottom: 6, marginTop: 4 },
+  subtitle: { fontSize: 14, color: '#6B7280', marginBottom: 20 },
+  list: { gap: 12 },
+  card: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, borderWidth: 2, borderColor: '#E5E7EB', padding: 16, gap: 14, backgroundColor: '#fff' },
+  cardSelected: { borderColor: '#2563EB', backgroundColor: '#EFF6FF' },
+  goalIcon: { fontSize: 28 },
+  goalText: { flex: 1 },
+  goalLabel: { fontSize: 16, fontWeight: '700', color: '#111827' },
+  goalDesc: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  selectedText: { color: '#2563EB' },
+  selectedDesc: { color: '#3B82F6' },
+  badge: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center' },
+  badgeText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  footer: { padding: 24, paddingBottom: 32 },
+  btn: { backgroundColor: '#2563EB', borderRadius: 16, height: 56, alignItems: 'center', justifyContent: 'center' },
+  btnDisabled: { backgroundColor: '#93C5FD' },
+  btnText: { fontSize: 17, fontWeight: '700', color: '#fff' },
 });

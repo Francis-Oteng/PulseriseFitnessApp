@@ -38,3 +38,17 @@ yarn-error.*
 *.tsbuildinfo
 
 app-example
+
+# Backend - Java/Maven build artifacts
+PulseriseBackend/target/
+PulseriseBackend/.mvn/wrapper/maven-wrapper.jar
+PulseriseBackend/data/
+
+# Stale doc files
+COMPREHENSIVE_ERROR_FIX_VERIFICATION.md
+COMPREHENSIVE_FALLBACK_ENHANCEMENT_SUMMARY.md
+DEPLOYMENT_STATUS_REPORT.md
+FINAL_DEPLOYMENT_GUIDE.md
+
+# Old frontend directory (merged into root)
+PulseriseFrontend/
